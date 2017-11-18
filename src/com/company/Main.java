@@ -40,6 +40,7 @@ import java.util.*;
 public class Main extends Application implements EventHandler<ActionEvent> {
 
     private Stage stage;
+    private Pane mainPain;
 
     private Label title;
     private Label song;
@@ -64,6 +65,7 @@ public class Main extends Application implements EventHandler<ActionEvent> {
 
     private ArrayList<File> musicList = new ArrayList<>();
     private int musicIndex = 0;
+    private String[] colors = {"115245", "554455", "224687", "9C27B0", "42A5F5", "80D8FF", "FF9800", "9E9E9E","#212121"};
     private boolean isMute;
 
     public static void main(String[] args) {
@@ -85,7 +87,7 @@ public class Main extends Application implements EventHandler<ActionEvent> {
         }
         stage.getIcons().add(img);
 
-        Pane mainPain = new Pane();
+        mainPain = new Pane();
 
         //setting the GUI components's parameters and attributes (java only)
         title = new Label("Choose a song to play");
@@ -221,8 +223,7 @@ public class Main extends Application implements EventHandler<ActionEvent> {
         mediaPlayer = null;
 
         mainPain.getChildren().addAll(title, play, previous, volumeSlider, next, select, volumeDown, volumeUp, song, slider, mute, totalTime, currentTime, imageView);
-        mainPain.setBackground(new Background(new BackgroundFill(Paint.valueOf("#224687"), null, null)));
-
+        changingTheme();
         Scene scene = new Scene(mainPain, 450, 730);
 
         stage.setScene(scene);
@@ -260,14 +261,10 @@ public class Main extends Application implements EventHandler<ActionEvent> {
             }
         }
 
-        if (event.getSource() == next)
-
-        {
+        if (event.getSource() == next) {
             nextSong();
         }
-        if (event.getSource() == previous)
-
-        {
+        if (event.getSource() == previous){
             previousSong();
         }
 
@@ -335,6 +332,7 @@ public class Main extends Application implements EventHandler<ActionEvent> {
     }
 
     private void nextSong() {
+        changingTheme();
         mediaPlayer.stop();
         musicIndex = new Random().nextInt(musicList.size());
         if (musicIndex == musicList.size()) musicIndex = 0;
@@ -345,6 +343,7 @@ public class Main extends Application implements EventHandler<ActionEvent> {
     }
 
     private void previousSong() {
+        changingTheme();
         mediaPlayer.stop();
         --musicIndex;
         if (musicIndex < 0) musicIndex = musicList.size() - 1;
@@ -432,5 +431,10 @@ public class Main extends Application implements EventHandler<ActionEvent> {
                 timer.purge();
             }
         }
+    }
+
+    private void changingTheme() {
+        int random = new Random().nextInt(colors.length);
+        mainPain.setBackground(new Background(new BackgroundFill(Paint.valueOf(colors[random]), null, null)));
     }
 }
