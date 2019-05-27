@@ -6,12 +6,14 @@ package Controller;
  * All legal ownership of this software is to JetLight studio
  * */
 
+import ToolBox.DbConnection;
 import com.jfoenix.controls.JFXDrawer;
 import com.jfoenix.controls.JFXHamburger;
 import com.jfoenix.controls.JFXSlider;
 import com.jfoenix.controls.events.JFXDrawerEvent;
 import com.jfoenix.transitions.hamburger.HamburgerBackArrowBasicTransition;
 import javafx.beans.binding.StringBinding;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
@@ -23,7 +25,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.VBox;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
-import javafx.stage.FileChooser;
+import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 import javafx.scene.input.MouseEvent;
 import javafx.util.Duration;
@@ -72,6 +74,9 @@ public class MusicPlayerController implements Initializable {
     @FXML
     private JFXDrawer musicListDrawer;
 
+    @FXML
+    private VBox progressPanel;
+
     private HamburgerBackArrowBasicTransition transition;
     private Image img;
     private Media hit;
@@ -80,6 +85,7 @@ public class MusicPlayerController implements Initializable {
     private TimerTask timerTask;
     static ArrayList<File> musicList = new ArrayList<>();
     static ArrayList<Media> musicMediaList = new ArrayList<>();
+    String pathTillProject = System.getProperty("user.dir");
     private int musicIndex = 0;
     private boolean isMute;
     private boolean isPlaying;
@@ -109,29 +115,18 @@ public class MusicPlayerController implements Initializable {
         volumeSlider.setOnMouseDragged(event -> mediaPlayer.setVolume(volumeSlider.getValue() / 100));
 
         startJetTunes();
-        instance = this;
-        //Music list drawer setup
-        try {
-            //loading music list custom layout
-            VBox vBox = FXMLLoader.load(getClass().getResource("../View/musicListDrawer.fxml"));
-            musicListDrawer.setSidePane(vBox);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        //transition is responsible for drawer animation
-        transition = new HamburgerBackArrowBasicTransition(hamburger);
-        transition.setRate(-1);
-        musicListDrawer.setOnDrawerClosed(event -> musicListDrawer.setDisable(true));
+
     }
 
     @FXML
     void startJetTunes() {
-        if (loadingFile()) {
+        if (loadingMusic()) {
             playButton.setImage(getUiImage("pauseWhite"));
+            loadingParam();
+            initializingMusicDrawer();
         } else {
             fillingTheList();
         }
-        loadingParam();
     }
 
     @FXML
@@ -221,8 +216,29 @@ public class MusicPlayerController implements Initializable {
         System.exit(0);
     }
 
+    @FXML
+    void minimizeApp(MouseEvent event) {
+        ((Stage) ((ImageView) event.getSource()).getScene().getWindow()).setIconified(true);
+    }
+
 
     //region music functions
+
+    void initializingMusicDrawer() {
+        instance = this;
+        //Music list drawer setup
+        try {
+            //loading music list custom layout
+            VBox vBox = FXMLLoader.load(getClass().getResource("/View/musicListDrawer.fxml"));
+            musicListDrawer.setSidePane(vBox);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        //transition is responsible for drawer animation
+        transition = new HamburgerBackArrowBasicTransition(hamburger);
+        transition.setRate(-1);
+        musicListDrawer.setOnDrawerClosed(event -> musicListDrawer.setDisable(true));
+    }
 
     Image getUiImage(String name) {
         return new Image("res/images/" + name + ".png");
@@ -230,7 +246,8 @@ public class MusicPlayerController implements Initializable {
 
     private void savingParameters() {
         try {
-            FileWriter fw = new FileWriter(new File(String.valueOf(Paths.get("src/res/data/parameters"))));
+            File file = new File(pathTillProject + "/JetTunes/data/Parameters");
+            FileWriter fw = new FileWriter(file);
             fw.write("" + isRandom + "\n");
             fw.write("" + musicIndex + "\n");
             fw.write("" + isMute + "\n");
@@ -238,90 +255,135 @@ public class MusicPlayerController implements Initializable {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
     }
 
-    private boolean loadingFile() {
-
-        File f = new File(String.valueOf(Paths.get("src/res/data/MusicList")));
+    private boolean loadingMusic() {
+        /*InputStream is = getClass().getResourceAsStream("/res/data/MusicList");
+        InputStreamReader sReader = new InputStreamReader(is);
         Scanner scn;
-        try {
-            scn = new Scanner(f);
-            if (!scn.hasNextLine()) return false;
-            int i = 0;
-            while (scn.hasNextLine()) {
-                musicList.add(new File(scn.nextLine()));
+        scn = new Scanner(sReader);
+
+        if (!scn.hasNextLine()) return false;
+        int i = 0;
+        while (scn.hasNextLine()) {
+            File file = new File(scn.nextLine());
+            if (file.exists()) {
+                musicList.add(file);
                 musicMediaList.add(new Media(musicList.get(i).toURI().toString()));
                 i++;
             }
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
         }
-
         return true;
+        */
+        ArrayList<String> musicListPaths = DbConnection.getMusicList();
+        if (musicListPaths.size() == 0) {
+            return false;
+        } else {
+            for (int i = 0; i < musicListPaths.size(); i++) {
+                String temp = musicListPaths.get(i);
+                if (musicListPaths.get(i).contains("`"))
+                    temp = musicListPaths.get(i).replaceAll("`", "'");
+                musicList.add(new File(temp));
+            }
+            return true;
+        }
     }
 
     private void loadingParam() {
-        File paramFile = new File(String.valueOf(Paths.get("src/res/data/Parameters")));
-        Scanner sc;
-        try {
-            sc = new Scanner(paramFile);
-            if (sc.hasNextLine()) {
-                isRandom = Boolean.valueOf(sc.nextLine());
-                musicIndex = Integer.valueOf(sc.nextLine());
-                isMute = Boolean.valueOf(sc.nextLine());
+        String filePath = String.valueOf(Paths.get(pathTillProject + "/JetTunes/data/Parameters"));
+        File paramFile = new File(filePath);
+        if (!paramFile.exists()) {
+            try {
+                new File(pathTillProject + "/JetTunes/data").mkdirs();
+                PrintWriter writer = new PrintWriter(pathTillProject + "/JetTunes/data/Parameters", "UTF-8");
+                isRandom = false;
+                musicIndex = 0;
+                isMute = false;
+                writer.println(false);
+                writer.println(0);
+                writer.println(false);
+                writer.close();
                 randomButton.setImage(getUiImage(isRandom ? "shuffleOnWhite" : "ShuffleOFFGreen"));
                 mute.setImage(getUiImage(isMute ? "volumeOffWhite" : "volumeOnWhite"));
+            } catch (FileNotFoundException | UnsupportedEncodingException e) {
+                e.printStackTrace();
             }
-            hit = new Media(musicList.get(musicIndex).toURI().toString());
-            settingUpMediaPlayer(hit);
-            //setting media player after initializing it (avoiding null pointer exception)
-            mediaPlayer.setMute(isMute);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    void deletingMusicList() {
-            File file = new File(String.valueOf(Paths.get("src/res/data/MusicList")));
-            file.delete();
-    }
-
-    void fillingTheList() {
-        playButton.setImage(getUiImage("pauseWhite"));
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Open Music File");
-        File file = fileChooser.showOpenDialog(new Stage());
-        if (fileChooser.initialDirectoryProperty().getName().matches("initialDirectory")
-                && file.getParentFile().isDirectory()) {
-            File parent = file.getParentFile();
-            FileWriter fw;
+        } else {
             try {
-                fw = new FileWriter(new File(String.valueOf(Paths.get("src/res/data/MusicList"))), true);
-                for (int i = 0; i < parent.listFiles().length; i++) {
-                    String filename = parent.listFiles()[i].toURI().toString();
-                    if (filename.endsWith(".mp3")) {
-                        musicList.add(parent.listFiles()[i]);
-                        fw.write(parent.listFiles()[i].toString() + "\n");
-                    }
+                Scanner sc = new Scanner(paramFile);
+                if (sc.hasNextLine()) {
+                    isRandom = Boolean.valueOf(sc.nextLine());
+                    musicIndex = Integer.valueOf(sc.nextLine());
+                    isMute = Boolean.valueOf(sc.nextLine());
+                    randomButton.setImage(getUiImage(isRandom ? "shuffleOnWhite" : "ShuffleOFFGreen"));
+                    mute.setImage(getUiImage(isMute ? "volumeOffWhite" : "volumeOnWhite"));
                 }
-                fw.close();
-            } catch (IOException e) {
+            } catch (FileNotFoundException e) {
                 e.printStackTrace();
             }
         }
-        //stopping the previous songTitle and its data
-        if (timer != null) {
-            sliderClock(false);
-            timer = null;
-            timerTask = null;
-        }
-        if (mediaPlayer != null) mediaPlayer.stop();
         hit = new Media(musicList.get(musicIndex).toURI().toString());
         settingUpMediaPlayer(hit);
+        //setting media player after initializing it (avoiding null pointer exception)
+        mediaPlayer.setMute(isMute);
+    }
 
-        //this is used to delay the media player enough for the songTitle to be loaded
-        //this doesn't influence play time (milli-seconds scale)
-        mediaPlayer.setOnReady(this::playMusic);
+    void deletingMusicList() {
+        DbConnection.dropTable();
+    }
+
+    void fillingTheList() {
+        DirectoryChooser directoryChooser = new DirectoryChooser();
+        directoryChooser.setTitle("Choose a music directory");
+        File file = directoryChooser.showDialog(new Stage());
+
+        if (file != null) {
+            progressPanel.setVisible(true);
+
+            //clearing music to avoid duplicated songs
+            musicList.clear();
+            if (directoryChooser.initialDirectoryProperty().getName().matches("initialDirectory")
+                    && file.getParentFile().isDirectory()) {
+                fillingMusicDataBaseList(file);
+            }
+        }
+    }
+
+    private void fillingMusicDataBaseList(File file) {
+        Task task = new Task() {
+            @Override
+            protected Object call() {
+                File[] files = file.listFiles();
+                for (int i = 0; i < files.length; i++) {
+                    String filename = files[i].toURI().toString();
+                    if (filename.endsWith(".mp3")) {
+                        musicList.add(files[i]);
+                        DbConnection.addSong("musicList", files[i].toString());
+                    }
+                }
+                return null;
+            }
+        };
+        task.setOnSucceeded(event -> {
+            progressPanel.setVisible(false);
+            //stopping the previous songTitle and its data
+            if (timer != null) {
+                sliderClock(false);
+                timer = null;
+                timerTask = null;
+            }
+            if (mediaPlayer != null) mediaPlayer.stop();
+            hit = new Media(musicList.get(musicIndex).toURI().toString());
+            settingUpMediaPlayer(hit);
+
+            //this is used to delay the media player enough for the songTitle to be loaded
+            //this doesn't influence play time (milli-seconds scale)
+            mediaPlayer.setOnReady(this::playMusic);
+            loadingParam();
+            initializingMusicDrawer();
+        });
+        new Thread(task).start();
     }
 
     private void playMusic() {
@@ -394,20 +456,20 @@ public class MusicPlayerController implements Initializable {
         }
         mediaPlayer.setAudioSpectrumListener((timestamp, duration, magnitudes, phases) -> {
             for (int i = 0; i < series1Data.length; i++) {
-                 float tempValue = magnitudes[i] - mediaPlayer.getAudioSpectrumThreshold();
+                float tempValue = magnitudes[i] - mediaPlayer.getAudioSpectrumThreshold();
                 series1Data[(i + 25) % 60].setYValue(tempValue);
             }
         });
 
         areaChart.getData().clear();
         areaChart.getData().add(series1);
+        mediaPlayer.setVolume(volumeSlider.getValue()/100);
         mediaPlayer.setOnReady(this::playMusic);
 
         mediaPlayer.setOnEndOfMedia(() -> nextSong(null));
 
         return mediaPlayer;
     }
-
 
     //endregion
 }
